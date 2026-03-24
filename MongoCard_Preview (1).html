@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>МонгоКарт</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0d0d1a;color:#fff;min-height:100vh}
+.screen{display:none;min-height:100vh;padding:16px;flex-direction:column;align-items:center}
+.screen.active{display:flex}
+
+/* LOBBY */
+.logo{font-size:2.2rem;font-weight:900;margin-top:30px;background:linear-gradient(135deg,#f5a623,#e8143e);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tagline{color:#aaa;margin:6px 0 24px;font-size:.95rem}
+.coin-bar{display:flex;align-items:center;gap:12px;background:#1a1a2e;padding:10px 20px;
+  border-radius:999px;margin-bottom:28px;font-size:1rem}
+.game-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;max-width:420px}
+.game-card{background:#1a1a2e;border:2px solid #2a2a50;border-radius:16px;padding:22px;
+  text-align:center;cursor:pointer;transition:all .2s}
+.game-card:hover{transform:translateY(-4px);border-color:#f5a623;background:#1a1a3e}
+.game-card.locked{opacity:.45;cursor:not-allowed}
+.game-card.locked:hover{transform:none;border-color:#2a2a50;background:#1a1a2e}
+.game-icon{font-size:2.2rem;margin-bottom:8px}
+.game-name{font-weight:700;font-size:1rem}
+.game-bet{font-size:.8rem;color:#f5a623;margin-top:4px}
+.lobby-btns{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+
+/* BUTTONS */
+.btn{border:none;border-radius:999px;padding:11px 26px;font-size:.95rem;font-weight:700;cursor:pointer}
+.btn-gold{background:linear-gradient(135deg,#f5a623,#e8143e);color:#fff}
+.btn-outline{background:transparent;color:#f5a623;border:2px solid #f5a623}
+.btn-gray{background:#2a2a50;color:#fff}
+.btn-red{background:#6a1a2e;color:#fff}
+.btn-sm{padding:7px 16px;font-size:.82rem}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+
+/* GAME SCREEN */
+.game-screen{width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px;padding-bottom:20px}
+.game-header{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid #2a2a50}
+.game-title{font-size:1.1rem;font-weight:700}
+.coin-badge{color:#f5a623;font-weight:700;font-size:.9rem}
+
+/* SCORES */
+.scores{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.score-chip{background:#1a1a2e;border-radius:999px;padding:4px 12px;font-size:.78rem;border:1px solid #2a2a50}
+.score-chip.myturn{background:#f5a623;color:#000;border-color:#f5a623;font-weight:700}
+
+/* TABLE */
+.table{background:#0a1a0a;border:2px solid #1a3a1a;border-radius:18px;
+  width:100%;min-height:130px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;padding:14px}
+.table-cards{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:36px}
+.table-label{font-size:.75rem;color:#666;text-transform:uppercase;letter-spacing:.05em}
+.status{font-size:.85rem;color:#f5a623;font-weight:600;min-height:20px;text-align:center}
+
+/* OPPONENTS */
+.opponents{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.opp-box{background:#1a1a2e;border:1px solid #2a2a50;border-radius:10px;
+  padding:8px 14px;text-align:center;font-size:.78rem;min-width:75px}
+.opp-box.active{border-color:#f5a623;background:#1a1a3e}
+.opp-name{font-weight:600;margin-bottom:2px}
+.opp-cards{color:#aaa}
+
+/* PLAYER HAND */
+.hand-area{width:100%}
+.hand-label{font-size:.78rem;color:#aaa;margin-bottom:6px}
+.hand{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:74px;
+  padding:4px;margin-bottom:10px}
+
+/* CARDS */
+.card{background:#fff;color:#111;border-radius:7px;width:46px;height:64px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:.85rem;font-weight:700;cursor:pointer;border:2px solid #ccc;
+  transition:transform .12s,border-color .12s;user-select:none;flex-shrink:0;line-height:1.2}
+.card:hover{transform:translateY(-7px);border-color:#999}
+.card.sel{border-color:#f5a623;transform:translateY(-13px);background:#fff8e0;
+  box-shadow:0 4px 12px #f5a62355}
+.card.red{color:#c0392b}
+.card.back{background:#1e2d5a;color:#4a6aaa;border-color:#2a3d6a;cursor:default}
+.card.back:hover{transform:none}
+.card.table-card{width:40px;height:56px;font-size:.78rem;cursor:default}
+.card.table-card:hover{transform:none}
+
+/* ACTION BAR */
+.action-bar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+/* AD */
+.ad-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100vh;gap:20px}
+.ad-box{background:#1a1a2e;border:2px dashed #333;border-radius:16px;
+  width:300px;height:180px;display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;color:#555}
+.ad-timer{color:#aaa;font-size:.9rem}
+
+/* SHOP */
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:420px;margin-top:8px}
+.shop-item{background:#1a1a2e;border:1px solid #2a2a50;border-radius:12px;
+  padding:16px 10px;text-align:center;position:relative}
+.shop-item.best{border-color:#f5a623}
+.best-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  background:#f5a623;color:#000;font-size:.7rem;font-weight:900;border-radius:999px;
+  padding:2px 10px;white-space:nowrap}
+.shop-amt{font-size:1.3rem;font-weight:700;margin-bottom:4px}
+.shop-price{color:#aaa;font-size:.82rem;margin-bottom:8px}
+.daily-box{background:#0a1a0a;border:1px solid #1a3a1a;border-radius:12px;
+  padding:18px;text-align:center;max-width:420px;width:100%;margin-top:18px}
+
+/* LEADERBOARD */
+.lb-list{width:100%;max-width:420px}
+.lb-row{display:flex;align-items:center;background:#1a1a2e;border-radius:10px;
+  padding:12px 16px;margin-bottom:8px;gap:12px}
+.lb-rank{font-size:1.1rem;width:28px;text-align:center}
+.lb-name{flex:1;font-weight:600}
+.lb-pts{color:#f5a623;font-weight:700}
+
+/* TOAST */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(70px);
+  background:#222;color:#fff;border-radius:999px;padding:10px 22px;font-size:.88rem;
+  transition:transform .3s;z-index:9999;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* RESULT MODAL */
+.modal-bg{position:fixed;inset:0;background:#000a;display:flex;align-items:center;
+  justify-content:center;z-index:999;display:none}
+.modal-bg.open{display:flex}
+.modal{background:#1a1a2e;border:2px solid #f5a623;border-radius:20px;padding:30px 28px;
+  text-align:center;max-width:320px;width:90%}
+.modal h2{margin-bottom:8px;font-size:1.4rem}
+.modal p{color:#aaa;margin-bottom:20px;font-size:.9rem}
+.modal-btns{display:flex;gap:10px;justify-content:center}
+
+.back-header{display:flex;align-items:center;gap:10px;width:100%;max-width:420px;margin-bottom:14px}
+.back-header h2{font-size:1.1rem}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="s-lobby" class="screen active">
+  <div class="logo">🃏 МонгоКарт</div>
+  <p class="tagline">Mongolia's Card Game Hub</p>
+  <div class="coin-bar">🪙 <span id="lob-coins">500</span> coins
+    <button class="btn btn-gold btn-sm" onclick="go('s-shop')">+ Buy</button>
+  </div>
+  <div class="game-grid">
+    <div class="game-card" onclick="enterGame('big2')">
+      <div class="game-icon">🂡</div>
+      <div class="game-name">Big 2</div>
+      <div class="game-bet">100 coins to play</div>
+    </div>
+    <div class="game-card" onclick="enterGame('muushig')">
+      <div class="game-icon">🃒</div>
+      <div class="game-name">Муушиг</div>
+      <div class="game-bet">100 coins to play</div>
+    </div>
+    <div class="game-card locked">
+      <div class="game-icon">🂱</div>
+      <div class="game-name">Хузур</div>
+      <div class="game-bet">Coming Soon</div>
+    </div>
+    <div class="game-card locked">
+      <div class="game-icon">🃁</div>
+      <div class="game-name">More Soon</div>
+      <div class="game-bet">Coming Soon</div>
+    </div>
+  </div>
+  <div class="lobby-btns">
+    <button class="btn btn-outline" onclick="go('s-lb')">🏆 Leaderboard</button>
+    <button class="btn btn-gray" onclick="go('s-shop')">🛒 Shop</button>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="s-shop" class="screen">
+  <div class="back-header">
+    <button class="btn btn-gray btn-sm" onclick="goLobby()">← Back</button>
+    <h2>🛒 Coin Shop</h2>
+  </div>
+  <p style="color:#aaa;font-size:.82rem;text-align:center;max-width:380px;margin-bottom:14px">
+    Coins are for in-game play only — no cash value.</p>
+  <div class="shop-grid">
+    <div class="shop-item"><div class="shop-amt">🪙 500</div>
+      <div class="shop-price">₮2,500 / $0.70</div>
+      <button class="btn btn-gold btn-sm" onclick="buy(500)">Buy</button></div>
+    <div class="shop-item best"><div class="best-badge">BEST VALUE</div>
+      <div class="shop-amt">🪙 1,500</div>
+      <div class="shop-price">₮6,000 / $1.70</div>
+      <button class="btn btn-gold btn-sm" onclick="buy(1500)">Buy</button></div>
+    <div class="shop-item"><div class="shop-amt">🪙 3,500</div>
+      <div class="shop-price">₮12,000 / $3.40</div>
+      <button class="btn btn-gold btn-sm" onclick="buy(3500)">Buy</button></div>
+    <div class="shop-item"><div class="shop-amt">🪙 8,000</div>
+      <div class="shop-price">₮25,000 / $7.00</div>
+      <button class="btn btn-gold btn-sm" onclick="buy(8000)">Buy</button></div>
+  </div>
+  <div class="daily-box">
+    <div style="font-size:1.1rem;margin-bottom:6px">🎁 Daily Bonus</div>
+    <p style="color:#aaa;font-size:.85rem;margin-bottom:12px">Claim 50 free coins every day!</p>
+    <button class="btn btn-gold" onclick="daily()">Claim Free Coins</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="s-lb" class="screen">
+  <div class="back-header">
+    <button class="btn btn-gray btn-sm" onclick="goLobby()">← Back</button>
+    <h2>🏆 Leaderboard</h2>
+  </div>
+  <div class="lb-list" id="lb-list"></div>
+</div>
+
+<!-- AD -->
+<div id="s-ad" class="screen">
+  <div class="ad-wrap">
+    <div class="ad-timer">Ad ends in <span id="ad-n">5</span>s</div>
+    <div class="ad-box">
+      <div style="font-size:2rem">📢</div>
+      <div>Advertisement</div>
+      <div style="font-size:.8rem">advertise@mongocard.mn</div>
+    </div>
+    <div id="ad-skip" style="display:none">
+      <button class="btn btn-gold" onclick="adDone()">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- BIG 2 -->
+<div id="s-big2" class="screen">
+  <div class="game-screen">
+    <div class="game-header">
+      <button class="btn btn-gray btn-sm" onclick="quitGame()">← Quit</button>
+      <span class="game-title">Big 2</span>
+      <span class="coin-badge">🪙 <span id="b2-coin">0</span></span>
+    </div>
+    <div class="scores" id="b2-scores"></div>
+    <div class="table">
+      <div class="table-label">Current Pile</div>
+      <div class="table-cards" id="b2-pile"></div>
+      <div class="status" id="b2-status"></div>
+    </div>
+    <div class="opponents" id="b2-opps"></div>
+    <div class="hand-area">
+      <div class="hand-label">Your Hand — tap cards to select, then Play</div>
+      <div class="hand" id="b2-hand"></div>
+      <div class="action-bar">
+        <button class="btn btn-gold" onclick="b2Play()">▶ Play Selected</button>
+        <button class="btn btn-red" onclick="b2Pass()">✋ Pass</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MUUSHIG -->
+<div id="s-muushig" class="screen">
+  <div class="game-screen">
+    <div class="game-header">
+      <button class="btn btn-gray btn-sm" onclick="quitGame()">← Quit</button>
+      <span class="game-title">Муушиг</span>
+      <span class="coin-badge">🪙 <span id="mu-coin">0</span></span>
+    </div>
+    <div class="scores" id="mu-scores"></div>
+    <div class="table">
+      <div class="table-label" id="mu-trump-label">Trump Suit</div>
+      <div class="table-cards" id="mu-trick"></div>
+      <div class="status" id="mu-status"></div>
+    </div>
+    <div class="opponents" id="mu-opps"></div>
+    <div class="hand-area">
+      <div class="hand-label">Your Hand — tap a card then Play</div>
+      <div class="hand" id="mu-hand"></div>
+      <div class="action-bar">
+        <button class="btn btn-gold" onclick="muPlay()">▶ Play Card</button>
+        <button class="btn btn-red" onclick="quitGame()">✗ Quit Game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">🏆 You Win!</h2>
+    <p id="modal-body">Great game!</p>
+    <div class="modal-btns">
+      <button class="btn btn-gold" id="modal-play" onclick="modalPlay()">Play Again</button>
+      <button class="btn btn-outline" onclick="modalLobby()">Lobby</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CORE
+// ═══════════════════════════════════════════════
+let coins = +localStorage.getItem('mc_coins') || 500;
+let myscore = +localStorage.getItem('mc_score') || 0;
+let adCb = null;
+let lastGame = null;
+
+function save(){ localStorage.setItem('mc_coins',coins); localStorage.setItem('mc_score',myscore); }
+
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goLobby(){
+  document.getElementById('lob-coins').textContent = coins;
+  go('s-lobby');
+}
+
+function toast(m,d=2500){
+  const t=document.getElementById('toast');
+  t.textContent=m; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),d);
+}
+
+function buy(n){ coins+=n; save(); toast('🪙 +'+n+' coins!'); }
+function daily(){
+  const today=new Date().toDateString();
+  if(localStorage.getItem('mc_daily')===today){toast('Already claimed today! 🌙');return;}
+  coins+=50; save(); localStorage.setItem('mc_daily',today); toast('🎁 +50 free coins!');
+}
+
+// Leaderboard
+const LB=[{n:'Баярсайхан',s:4820},{n:'Уянга',s:3670},{n:'Оюунбаатар',s:2100},{n:'Номундарь',s:1550}];
+function showLB(){
+  const all=[...LB,{n:'You',s:myscore}].sort((a,b)=>b.s-a.s);
+  const em=['🥇','🥈','🥉','4️⃣','5️⃣'];
+  document.getElementById('lb-list').innerHTML=all.map((p,i)=>
+    `<div class="lb-row"><div class="lb-rank">${em[i]||i+1}</div>
+     <div class="lb-name">${p.n}</div><div class="lb-pts">${p.s} pts</div></div>`).join('');
+  go('s-lb');
+}
+document.querySelector('[onclick="go('s-lb')"]').onclick=showLB;
+
+// Ad
+function showAd(cb){ adCb=cb; go('s-ad'); let n=5;
+  document.getElementById('ad-n').textContent=n;
+  document.getElementById('ad-skip').style.display='none';
+  const iv=setInterval(()=>{ n--; document.getElementById('ad-n').textContent=n;
+    if(n<=0){clearInterval(iv);document.getElementById('ad-skip').style.display='block';}},1000);}
+function adDone(){ if(adCb) adCb(); }
+
+// Result modal
+function showResult(title, body, game){
+  lastGame=game;
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').textContent=body;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+function modalPlay(){ closeModal(); showAd(()=>enterGame(lastGame)); }
+function modalLobby(){ closeModal(); showAd(()=>goLobby()); }
+
+function enterGame(game){
+  if(coins<100){toast('Need 100 coins to play! Buy more in the shop 🪙');return;}
+  coins-=100; save();
+  if(game==='big2') b2Start();
+  else if(game==='muushig') muStart();
+}
+function quitGame(){ showAd(()=>goLobby()); }
+
+// ═══════════════════════════════════════════════
+//  CARD HELPERS
+// ═══════════════════════════════════════════════
+const SUITS=['♦','♣','♥','♠'];
+const RANKS=['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+const SV={♦:0,♣:1,♥:2,♠:3};
+function cv(c){ return RANKS.indexOf(c.r)*4+SV[c.s]; }
+function isRed(c){ return c.s==='♥'||c.s==='♦'; }
+
+function deck52(){
+  const d=[];
+  for(const s of SUITS) for(const r of RANKS) d.push({r,s});
+  return d;
+}
+const MU_RANKS=['7','8','9','10','J','Q','K','A'];
+const MRV={};MU_RANKS.forEach((r,i)=>MRV[r]=i);
+function deck32(){
+  const d=[];
+  for(const s of SUITS) for(const r of MU_RANKS) d.push({r,s});
+  return d;
+}
+function shuffle(d){
+  for(let i=d.length-1;i>0;i--){const j=0|Math.random()*(i+1);[d[i],d[j]]=[d[j],d[i]];}return d;
+}
+
+function cardHTML(c,sel=false,tableCard=false){
+  const rc=isRed(c)?'red':'';
+  const sc=sel?' sel':'';
+  const tc=tableCard?' table-card':'';
+  return `<div class="card ${rc}${sc}${tc}">${c.s}<br/>${c.r}</div>`;
+}
+function backHTML(){ return `<div class="card back">🂠</div>`; }
+
+// ═══════════════════════════════════════════════
+//  BIG 2
+// ═══════════════════════════════════════════════
+/*
+  52 cards, 4 players (13 each). Holder of 3♦ leads first.
+  Must include 3♦ in very first play of the game.
+  Beat pile: same card count, higher value (single/pair/triple/5-card).
+  Three consecutive passes = pile clears, last player leads fresh.
+  First to empty hand wins. Penalty = remaining cards of others.
+*/
+let B={};
+
+function b2Combo(cards){
+  if(!cards||!cards.length) return null;
+  const s=[...cards].sort((a,b)=>cv(b)-cv(a));
+  const top=cv(s[0]); const n=s.length;
+  if(n===1) return {t:1,v:top};
+  if(n===2){ if(s[0].r===s[1].r) return {t:2,v:top}; return null; }
+  if(n===3){ if(s.every(c=>c.r===s[0].r)) return {t:3,v:top}; return null; }
+  if(n===5){
+    const ri=s.map(c=>RANKS.indexOf(c.r));
+    const su=s.map(c=>c.s);
+    const flush=su.every(x=>x===su[0]);
+    const str=ri.every((r,i)=>i===0||r===ri[i-1]-1);
+    const g={};ri.forEach(r=>g[r]=(g[r]||0)+1);
+    const cnts=Object.values(g).sort((a,b)=>b-a);
+    if(flush&&str) return {t:9,v:top};
+    if(cnts[0]===4) return {t:8,v:top};
+    if(cnts[0]===3&&cnts[1]===2) return {t:7,v:top};
+    if(flush) return {t:6,v:top};
+    if(str) return {t:5,v:top};
+    return null;
+  }
+  return null;
+}
+function b2Beats(nc,oc){ if(!oc) return true; if(nc.t!==oc.t) return false; return nc.v>oc.v; }
+
+function b2Start(){
+  const d=shuffle(deck52());
+  const hands=[[],[],[],[]];
+  for(let i=0;i<52;i++) hands[i%4].push(d[i]);
+  hands.forEach(h=>h.sort((a,b)=>cv(a)-cv(b)));
+  const start=hands.findIndex(h=>h.some(c=>c.r==='3'&&c.s==='♦'));
+  B={hands,pile:[],pilePlayer:-1,passCount:0,current:start,sel:[],firstPlay:true,over:false,scores:[0,0,0,0]};
+  document.getElementById('b2-coin').textContent=coins;
+  b2Render();
+  go('s-big2');
+  if(B.current!==0) setTimeout(b2AI,900);
+}
+
+const NAMES=['You','Bot A','Bot B','Bot C'];
+
+function b2Render(){
+  // scores
+  document.getElementById('b2-scores').innerHTML=
+    B.scores.map((sc,i)=>`<div class="score-chip${B.current===i?' myturn':''}">${NAMES[i]}: ${sc}pts</div>`).join('');
+  // pile
+  const pel=document.getElementById('b2-pile');
+  if(B.pile.length) pel.innerHTML=B.pile.map(c=>cardHTML(c,false,true)).join('');
+  else pel.innerHTML='<span style="color:#444;font-size:.85rem">Empty — lead any combo</span>';
+  // status
+  const stEl=document.getElementById('b2-status');
+  stEl.textContent=B.over?'Game Over!':(B.current===0?'Your turn!':NAMES[B.current]+' thinking…');
+  // opponents
+  document.getElementById('b2-opps').innerHTML=[1,2,3].map(i=>
+    `<div class="opp-box${B.current===i?' active':''}">
+      <div class="opp-name">${NAMES[i]}</div>
+      <div class="opp-cards">🂠 ×${B.hands[i].length}</div></div>`).join('');
+  // hand
+  const hand=B.hands[0];
+  hand.sort((a,b)=>cv(a)-cv(b));
+  document.getElementById('b2-hand').innerHTML=hand.map((c,i)=>
+    `<div class="card${isRed(c)?' red':''}${B.sel.includes(i)?' sel':''}" onclick="b2Tap(${i})">${c.s}<br/>${c.r}</div>`
+  ).join('');
+}
+
+function b2Tap(i){
+  if(B.current!==0||B.over) return;
+  const idx=B.sel.indexOf(i);
+  if(idx>=0) B.sel.splice(idx,1); else B.sel.push(i);
+  b2Render();
+}
+
+function b2Play(){
+  if(B.current!==0||B.over){toast('Not your turn!');return;}
+  if(!B.sel.length){toast('Tap cards to select them first!');return;}
+  const cards=B.sel.map(i=>B.hands[0][i]);
+  const combo=b2Combo(cards);
+  if(!combo){toast('❌ Invalid combination! Try single, pair, triple, or 5-card hand');return;}
+  const pCombo=B.pile.length?b2Combo(B.pile):null;
+  const canLead=!B.pile.length||B.pilePlayer===0;
+  if(!canLead&&!b2Beats(combo,pCombo)){toast('❌ Doesn't beat the pile! Need higher '+['','single','pair','triple','','5-card'][combo.t]||'combo');return;}
+  if(B.firstPlay&&!cards.some(c=>c.r==='3'&&c.s==='♦')){toast('❌ First play of game must include 3♦!');return;}
+  B.sel.sort((a,b)=>b-a).forEach(i=>B.hands[0].splice(i,1));
+  B.sel=[]; B.pile=cards; B.pilePlayer=0; B.passCount=0; B.firstPlay=false;
+  if(!B.hands[0].length){b2End(0);return;}
+  B.current=1; b2Render(); setTimeout(b2AI,700);
+}
+
+function b2Pass(){
+  if(B.current!==0||B.over) return;
+  if(!B.pile.length||B.pilePlayer===0){toast("You lead the pile — can't pass!");return;}
+  B.passCount++;
+  if(B.passCount>=3){B.pile=[];B.pilePlayer=-1;B.passCount=0;toast('Pile cleared — you lead!');}
+  B.current=1; b2Render(); setTimeout(b2AI,700);
+}
+
+function b2BestAI(p){
+  const hand=B.hands[p];
+  const canLead=!B.pile.length||B.pilePlayer===p;
+  const pCombo=B.pile.length?b2Combo(B.pile):null;
+  // try singles
+  for(let i=0;i<hand.length;i++){
+    const c=[hand[i]];
+    if(B.firstPlay&&p===B.current&&!c.some(x=>x.r==='3'&&x.s==='♦')) continue;
+    const combo=b2Combo(c);
+    if(combo&&(canLead||b2Beats(combo,pCombo))) return [hand[i]];
+  }
+  // try pairs
+  for(let i=0;i<hand.length-1;i++){
+    if(hand[i].r!==hand[i+1].r) continue;
+    const c=[hand[i],hand[i+1]];
+    const combo=b2Combo(c);
+    if(combo&&(canLead||b2Beats(combo,pCombo))) return c;
+  }
+  return null;
+}
+
+function b2AI(){
+  if(B.over) return;
+  const p=B.current;
+  const play=b2BestAI(p);
+  if(play){
+    play.forEach(c=>B.hands[p].splice(B.hands[p].indexOf(c),1));
+    B.pile=play; B.pilePlayer=p; B.passCount=0; B.firstPlay=false;
+    if(!B.hands[p].length){b2End(p);return;}
+  } else {
+    B.passCount++;
+    if(B.passCount>=3){B.pile=[];B.pilePlayer=-1;B.passCount=0;}
+  }
+  B.current=(p+1)%4;
+  b2Render();
+  if(B.current!==0) setTimeout(b2AI,700);
+}
+
+function b2End(winner){
+  B.over=true;
+  let pts=0;
+  B.hands.forEach((h,i)=>{if(i!==winner){B.scores[winner]+=h.length;pts+=h.length;}});
+  b2Render();
+  if(winner===0){myscore+=pts*10;coins+=50;save();
+    showResult('🏆 You Win Big 2!',`Opponents had ${pts} cards left. +${pts*10} pts & +50 coins!`,'big2');
+  } else {
+    showResult('😔 '+NAMES[winner]+' Wins',NAMES[winner]+' emptied their hand first. Better luck next time!','big2');
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  МУУШИГ (Mongolian trick-taking)
+// ═══════════════════════════════════════════════
+/*
+  32-card deck (7-A), 4 players, 5 cards each.
+  One card flipped face-up = trump suit. Rest goes to stock.
+  Player 0 leads. Each trick: must follow led suit.
+  If no led suit → must play trump. If no trump → any card.
+  Highest card of led suit wins UNLESS trump played → highest trump wins.
+  Trick winner draws first (all refill to 5 while stock exists).
+  Trick winner leads next.
+  Game ends when stock empty and all hands empty.
+  Most tricks wins. Winner earns coins.
+*/
+let MU={};
+
+function muStr(c,trump,lead){
+  if(c.s===trump) return 100+MRV[c.r];
+  if(c.s===lead)  return 50+MRV[c.r];
+  return MRV[c.r];
+}
+
+function muStart(){
+  const d=shuffle(deck32());
+  const hands=[[],[],[],[]];
+  for(let i=0;i<20;i++) hands[i%4].push(d.shift());
+  const trumpCard=d.shift();
+  MU={hands,stock:d,trumpCard,trump:trumpCard.s,
+      trick:[],lead:null,current:0,sel:-1,over:false,
+      tricks:[0,0,0,0],totalTricks:0};
+  document.getElementById('mu-coin').textContent=coins;
+  document.getElementById('mu-trump-label').textContent='Trump: '+MU.trump+' | Stock: '+MU.stock.length;
+  muRender();
+  go('s-muushig');
+  if(MU.current!==0) setTimeout(muAI,900);
+}
+
+function muRender(){
+  // scores
+  document.getElementById('mu-scores').innerHTML=
+    MU.tricks.map((t,i)=>`<div class="score-chip${MU.current===i?' myturn':''}">${NAMES[i]}: ${t} tricks</div>`).join('');
+  // trump label
+  document.getElementById('mu-trump-label').textContent=
+    'Trump: '+MU.trump+' | Stock: '+MU.stock.length+'🂠';
+  // trick area
+  const tEl=document.getElementById('mu-trick');
+  if(MU.trick.length){
+    tEl.innerHTML=MU.trick.map(t=>
+      `<div style="text-align:center;margin:2px">
+        <div style="font-size:.65rem;color:#888;margin-bottom:2px">${NAMES[t.p]}</div>
+        ${cardHTML(t.c,false,true)}
+      </div>`).join('');
+  } else {
+    tEl.innerHTML='<span style="color:#444;font-size:.85rem">Lead a card to start trick</span>';
+  }
+  // status
+  document.getElementById('mu-status').textContent=
+    MU.over?'Game Over!':(MU.current===0?'Your turn!':NAMES[MU.current]+' thinking…');
+  // opponents
+  document.getElementById('mu-opps').innerHTML=[1,2,3].map(i=>
+    `<div class="opp-box${MU.current===i?' active':''}">
+      <div class="opp-name">${NAMES[i]}</div>
+      <div class="opp-cards">🂠 ×${MU.hands[i].length}</div></div>`).join('');
+  // hand
+  MU.hands[0].sort((a,b)=>MRV[a.r]-MRV[b.r]);
+  document.getElementById('mu-hand').innerHTML=MU.hands[0].map((c,i)=>
+    `<div class="card${isRed(c)?' red':''}${MU.sel===i?' sel':''}" onclick="muTap(${i})">${c.s}<br/>${c.r}</div>`
+  ).join('');
+  document.getElementById('mu-coin').textContent=coins;
+}
+
+function muTap(i){
+  if(MU.current!==0||MU.over) return;
+  MU.sel=MU.sel===i?-1:i;
+  muRender();
+}
+
+function muValidate(card){
+  if(MU.trick.length===0) return {ok:true}; // leading, anything
+  const lead=MU.lead;
+  const hand=MU.hands[0];
+  const hasSuit=hand.some((c,i)=>c.s===lead&&i!==MU.sel);
+  if(hasSuit&&card.s!==lead&&card.s!==MU.trump)
+    return {ok:false,msg:'Must follow suit ('+lead+') or play trump ('+MU.trump+')!'};
+  if(!hasSuit){
+    const hasTrump=hand.some((c,i)=>c.s===MU.trump&&i!==MU.sel);
+    if(hasTrump&&card.s!==MU.trump&&card.s!==lead)
+      return {ok:false,msg:'No '+lead+' — must play trump ('+MU.trump+')!'};
+  }
+  return {ok:true};
+}
+
+function muPlay(){
+  if(MU.current!==0||MU.over){toast('Not your turn!');return;}
+  if(MU.sel<0){toast('Tap a card to select it first!');return;}
+  const card=MU.hands[0][MU.sel];
+  const v=muValidate(card);
+  if(!v.ok){toast('❌ '+v.msg);return;}
+  if(MU.trick.length===0) MU.lead=card.s;
+  MU.hands[0].splice(MU.sel,1); MU.sel=-1;
+  MU.trick.push({p:0,c:card});
+  muRender();
+  if(MU.trick.length<4){MU.current=1;muRender();setTimeout(muAI,700);}
+  else setTimeout(muResolve,700);
+}
+
+function muAI(){
+  if(MU.over) return;
+  const p=MU.current;
+  const hand=MU.hands[p];
+  if(!hand.length){MU.current=(p+1)%4;if(MU.current!==0)setTimeout(muAI,700);return;}
+  let card;
+  if(MU.trick.length===0){
+    // lead lowest non-trump
+    const nt=hand.filter(c=>c.s!==MU.trump);
+    const pool=nt.length?nt:hand;
+    card=pool.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a);
+    MU.lead=card.s;
+  } else {
+    const lead=MU.lead;
+    const suited=hand.filter(c=>c.s===lead);
+    const trumps=hand.filter(c=>c.s===MU.trump);
+    const curBest=Math.max(...MU.trick.map(t=>muStr(t.c,MU.trump,lead)));
+    if(suited.length){
+      // follow suit — try to win with lowest winner
+      const winners=suited.filter(c=>muStr(c,MU.trump,lead)>curBest);
+      card=winners.length
+        ?winners.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a)
+        :suited.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a);
+    } else if(trumps.length){
+      const winners=trumps.filter(c=>muStr(c,MU.trump,lead)>curBest);
+      card=winners.length
+        ?winners.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a)
+        :hand.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a);
+    } else {
+      card=hand.reduce((a,c)=>MRV[c.r]<MRV[a.r]?c:a);
+    }
+  }
+  hand.splice(hand.indexOf(card),1);
+  MU.trick.push({p,c:card});
+  muRender();
+  if(MU.trick.length<4){MU.current=(p+1)%4;muRender();setTimeout(muAI,700);}
+  else setTimeout(muResolve,700);
+}
+
+function muResolve(){
+  const lead=MU.lead;
+  let best=MU.trick[0];
+  MU.trick.forEach(t=>{if(muStr(t.c,MU.trump,lead)>muStr(best.c,MU.trump,lead))best=t;});
+  const winner=best.p;
+  MU.tricks[winner]++; MU.totalTricks++;
+  toast(NAMES[winner]+' wins the trick!',1600);
+  // draw back to 5, winner first
+  for(let i=0;i<4;i++){
+    const pi=(winner+i)%4;
+    if(MU.stock.length&&MU.hands[pi].length<5) MU.hands[pi].push(MU.stock.shift());
+  }
+  MU.trick=[]; MU.lead=null; MU.current=winner;
+  // game over?
+  const done=MU.hands.every(h=>!h.length)&&!MU.stock.length;
+  if(done){muEnd();return;}
+  muRender();
+  if(MU.current!==0) setTimeout(muAI,900);
+}
+
+function muEnd(){
+  MU.over=true;
+  const max=Math.max(...MU.tricks);
+  const winner=MU.tricks.indexOf(max);
+  muRender();
+  if(winner===0){
+    myscore+=300; coins+=60; save();
+    showResult('🏆 You Win Муушиг!','You took the most tricks ('+max+'). +300 pts & +60 coins!','muushig');
+  } else {
+    showResult('😔 '+NAMES[winner]+' Wins',NAMES[winner]+' took the most tricks ('+max+'). Try again!','muushig');
+  }
+}
+
+// boot
+goLobby();
+</script>
+</body>
+</html>
